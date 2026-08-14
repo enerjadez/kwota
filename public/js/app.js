@@ -540,6 +540,16 @@ function settingsView() {
       <button class="btn btn-amber" type="submit">Save settings</button>
     </form>
     <div class="card">
+      <h3>Getting paid (SA)</h3>
+      <p class="muted">The demo Pay button is a KWOTA checkout — Yoco’s public /demo link is dead. No SA gateway gives a working fake-pay URL without a merchant account.</p>
+      <p class="muted mt"><b>Ozow / pay-by-bank</b> — cheapest + fastest for deposits. ~1.5% (min R1). Instant EFT. Money in minutes.</p>
+      <p class="muted"><b>PayShap</b> — instant to the business account. Low fee. Good on phones.</p>
+      <p class="muted"><b>Yoco</b> — card links from the Yoco app. ~2.55–2.95%. Easy for tradies. No monthly fee.</p>
+      <p class="muted"><b>Paystack</b> — cards 2.9% + R1, Instant EFT ~2%. Best API if we plug in for real.</p>
+      <p class="muted"><b>PayFast</b> — cards ~2.9%+ and Instant EFT. Sandbox needs their merchant keys.</p>
+      <p class="muted mt">For live jobs: Ozow or PayShap for speed/fees, Yoco if they already have a card machine. Bank EFT is free and slow — keep it as backup.</p>
+    </div>
+    <div class="card">
       <h3>On your phone</h3>
       <p class="muted">Open this on the same Wi‑Fi, then Add to Home Screen.</p>
       <p class="mono">${esc(location.origin)}</p>

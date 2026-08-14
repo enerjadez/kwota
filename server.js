@@ -112,6 +112,7 @@ function clientQuote(quote, biz, base) {
       brandColor: biz.brandColor || "#e8a317",
       terms: biz.terms || "",
       paymentLink: biz.paymentLink || "",
+    payUrl: `${base}/pay/${quote.publicId}`,
       bankName: biz.bankName || "",
       bankAccountName: biz.bankAccountName || "",
       bankAccount: biz.bankAccount || "",
@@ -516,8 +517,35 @@ app.post("/api/public/:publicId/decline", (req, res) => {
   res.json({ quote: clientQuote(q, biz, publicBase(req)) });
 });
 
+app.post("/api/public/:publicId/pay", (req, res) => {
+  const q = store.quoteByPublic(req.params.publicId);
+  if (!q) return res.status(404).json({ error: "Quote not found." });
+  const biz = store.businessById(q.businessId);
+  const status = publicStatus(q);
+  if (status === "expired") return res.status(400).json({ error: "This quote has expired." });
+  if (status === "declined") return res.status(400).json({ error: "This quote was declined." });
+  const method = String(req.body?.method || "eft").slice(0, 24);
+  if (q.status === "draft") {
+    q.status = "sent";
+    q.sentAt = nowIso();
+  }
+  if (!q.acceptedAt) {
+    q.acceptedAt = nowIso();
+    q.acceptedBy = q.acceptedBy || q.clientName || "Client";
+  }
+  q.status = "paid";
+  q.paidAt = nowIso();
+  q.paidMethod = method;
+  store.save();
+  res.json({ quote: clientQuote(q, biz, publicBase(req)), demo: true });
+});
+
 app.get("/q/:publicId", (req, res) => {
   res.sendFile(path.join(PUBLIC, "q.html"));
+});
+
+app.get("/pay/:publicId", (req, res) => {
+  res.sendFile(path.join(PUBLIC, "pay.html"));
 });
 
 app.use((req, res, next) => {

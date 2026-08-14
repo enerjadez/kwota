@@ -1,0 +1,72 @@
+.pay-wrap { max-width: 520px; margin: 24px auto 40px; }
+.pay-amt {
+  font-family: var(--mono);
+  font-size: clamp(32px, 8vw, 44px);
+  font-weight: 600;
+  margin: 4px 0 0;
+}
+.pay-sub { color: var(--soft); margin: 4px 0 0; font-size: 14px; }
+.methods { display: grid; gap: 8px; margin: 18px 0 14px; }
+.method {
+  text-align: left;
+  width: 100%;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-family: var(--font);
+  color: var(--ink);
+}
+.method.on { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(22,20,16,.08); }
+.method strong { display: block; font-size: 15px; }
+.method span { display: block; color: var(--soft); font-size: 12px; margin-top: 3px; line-height: 1.4; }
+.method em {
+  display: inline-block;
+  margin-top: 6px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #8a5a00;
+}
+.pane { margin-top: 8px; }
+.banks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.banks button {
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font);
+  color: var(--ink);
+}
+.banks button:hover { border-color: var(--ink); }
+.card-fields { display: grid; gap: 8px; }
+.card-fields .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wait {
+  text-align: center;
+  padding: 28px 10px;
+}
+.wait b { display: block; font-size: 18px; margin-top: 10px; }
+.spin {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid #ddd3bb; border-top-color: var(--ink);
+  margin: 0 auto;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.done { text-align: center; padding: 10px 0 6px; }
+.done h2 { font-family: var(--serif); font-weight: 400; font-size: 34px; margin: 8px 0; }
+.mt { margin-top: 12px; }
+.note {
+  background: #fff8ea;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #3b362e;
+  line-height: 1.45;
+}

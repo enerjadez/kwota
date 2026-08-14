@@ -58,6 +58,10 @@ function render() {
   }
   const q = quote;
   const b = q.business;
+  const paidHint =
+    new URLSearchParams(location.search).get("paid") === "1" ||
+    (typeof sessionStorage !== "undefined" && sessionStorage.getItem("kwota-paid-" + publicId) === "1");
+  if (paidHint && q.status !== "declined" && q.status !== "expired") q.status = "paid";
   const canAct = q.status === "sent" || q.status === "draft";
   const logo = b.logoDataUrl
     ? `<img class="logo" src="${b.logoDataUrl}" alt="">`
@@ -96,7 +100,7 @@ function render() {
         </div>`
       : "";
 
-  const payHref = b.paymentLink || "";
+  const payHref = q.payUrl || `/pay/${publicId}`;
   const waBiz = `https://wa.me/${String(b.phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(
     `Hi ${b.name}, it's ${q.clientName || "me"} on quote ${q.number}.`
   )}`;
@@ -152,8 +156,8 @@ function render() {
             : ""
         }
         ${
-          (q.status === "accepted" || q.status === "sent" || q.status === "draft") && payHref
-            ? `<a class="btn btn-pay" href="${esc(payHref)}" target="_blank" rel="noopener">Pay ${zar(q.depositAmount)} deposit</a>`
+          q.status !== "paid" && q.status !== "declined" && q.status !== "expired"
+            ? `<a class="btn btn-pay" href="${esc(payHref)}">Pay ${zar(q.depositAmount)} deposit</a>`
             : ""
         }
         ${q.status === "accepted" || q.status === "paid" ? bank : canAct ? "" : bank}
