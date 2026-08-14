@@ -1,3 +1,5 @@
+import { jdeTagHtml } from "./jde-tag.js";
+
 const app = document.querySelector("#app");
 const publicId = location.pathname.split("/").filter(Boolean)[1] || "";
 
@@ -166,6 +168,7 @@ function render() {
         <button class="btn btn-ghost" id="pdf">Save / print PDF</button>
       </div>
     </article>
+    ${jdeTagHtml("foot")}
     <p class="foot">KWOTA</p>`;
 
   document.title = `${q.number} · ${b.name}`;

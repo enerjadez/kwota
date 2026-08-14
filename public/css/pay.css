@@ -1,4 +1,4 @@
-.pay-wrap { max-width: 520px; margin: 24px auto 40px; }
+.pay-wrap { max-width: 520px; margin: 12px auto 32px; }
 .pay-amt {
   font-family: var(--mono);
   font-size: clamp(32px, 8vw, 44px);
@@ -37,7 +37,8 @@
   background: #fff;
   border: 2px solid var(--line);
   border-radius: 12px;
-  padding: 12px;
+  padding: 14px 12px;
+  min-height: 48px;
   font-weight: 700;
   cursor: pointer;
   font-family: var(--font);

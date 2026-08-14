@@ -1,3 +1,5 @@
+import { jdeTagHtml } from "./jde-tag.js";
+
 const $ = (sel, el = document) => el.querySelector(sel);
 const app = $("#app");
 
@@ -209,7 +211,7 @@ function nav(on) {
 }
 
 function shell(inner, extra = "") {
-  return `<div class="wrap">${inner}</div>${extra}`;
+  return `<div class="wrap">${inner}</div>${jdeTagHtml("dock")}${extra}`;
 }
 
 function brand() {
@@ -242,6 +244,7 @@ function welcomeView() {
         <a class="btn btn-ghost" href="#/setup">Set up mine</a>
       </div>`
       }
+      ${jdeTagHtml("foot")}
     </div></div>`;
 }
 
@@ -290,6 +293,7 @@ function setupView() {
         <button class="btn btn-amber" type="submit">Create KWOTA</button>
       </form>
       <p class="tiny">${state.status?.hasBusiness ? `<a href="#/login">Already have an account? Sign in</a>` : "On your phone, open the same Wi‑Fi URL and add to home screen."}</p>
+      ${jdeTagHtml("foot")}
     </div></div>`;
 }
 
@@ -306,6 +310,7 @@ function loginView() {
         <button class="btn btn-ghost" type="submit">Open quotes</button>
       </form>
       <p class="tiny"><a href="#/setup">New business? Set up KWOTA</a></p>
+      ${jdeTagHtml("foot")}
     </div></div>`;
 }
 
@@ -627,6 +632,11 @@ function settingsView() {
       <p class="muted">Open this on the same Wi‑Fi, then Add to Home Screen.</p>
       <p class="mono">${esc(location.origin)}</p>
       <p class="muted mt">Voice AI: ${state.status?.ai ? "on" : "off"}</p>
+    </div>
+    <div class="card jde-sign-card">
+      <h3>Signature</h3>
+      <p class="muted">Built and finished by JDE.</p>
+      ${jdeTagHtml("sign")}
     </div>
     <button class="btn btn-bad mt" id="logout" type="button">Sign out</button>
     `,

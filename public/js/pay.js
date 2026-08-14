@@ -1,3 +1,5 @@
+import { jdeTagHtml } from "./jde-tag.js";
+
 const app = document.querySelector("#app");
 const publicId = location.pathname.split("/").filter(Boolean)[1] || "";
 
@@ -120,6 +122,7 @@ function render() {
         ${methodBtn("bank", "Bank transfer", "Free. Client pays from their app. Slower.", "")}
       </div>
       <div class="pane">${pane}</div>
+      ${jdeTagHtml("pay")}
     </div>
     <p class="foot">KWOTA</p>`;
 
@@ -154,6 +157,7 @@ function renderDone() {
         <h2>${zar(q.depositAmount)}</h2>
         <p class="pay-sub">${esc(q.number)} is booked. ${esc(q.business.name)} will see it as paid.</p>
         <a class="btn btn-accept mt" href="/q/${esc(publicId)}?paid=1">Back to the quote</a>
+        ${jdeTagHtml("pay")}
       </div>
     </div>
     <p class="foot">KWOTA</p>`;
