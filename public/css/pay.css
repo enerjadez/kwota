@@ -61,6 +61,22 @@
 .done { text-align: center; padding: 10px 0 6px; }
 .done h2 { font-family: var(--serif); font-weight: 400; font-size: 34px; margin: 8px 0; }
 .mt { margin-top: 12px; }
+.shap-hint {
+  background: #fff8ea;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px 10px;
+}
+.shap-lead { margin: 0 0 10px; font-size: 15px; line-height: 1.4; }
+.shap-steps {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #3b362e;
+}
+.shap-steps li { margin: 0 0 8px; }
+.shap-hint .pay-sub { margin-top: 8px; }
 .note {
   background: #fff8ea;
   border: 1px solid var(--line);

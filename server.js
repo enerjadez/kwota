@@ -87,6 +87,7 @@ function clientQuote(quote, biz, base) {
     payUrl: `${base}/pay/${quote.publicId}`,
     status,
     clientName: quote.clientName,
+    clientPhone: quote.clientPhone || "",
     site: quote.site,
     notes: quote.notes,
     items: quote.items,

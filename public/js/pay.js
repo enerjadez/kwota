@@ -11,6 +11,12 @@ function esc(s) {
     .replace(/"/g, "&quot;");
 }
 
+function prettyPhoneFromQuote(q) {
+  const x = String(q.clientPhone || "").replace(/\D/g, "");
+  if (x.startsWith("27") && x.length === 11) return `0${x.slice(2, 4)} ${x.slice(4, 7)} ${x.slice(7)}`;
+  return q.clientPhone || "their cellphone";
+}
+
 function zar(n) {
   return (
     "R" +
@@ -54,8 +60,8 @@ function render() {
       <div class="sheet pay-wrap">
         <div class="wait">
           <div class="spin"></div>
-          <b>${method === "card" ? "Charging the card…" : method === "payshap" ? "Sending PayShap request…" : "Opening your bank…"}</b>
-          <p class="pay-sub">Demo only. No real money moves.</p>
+          <b>${method === "card" ? "Charging the card…" : method === "payshap" ? "Waiting on their banking app…" : "Opening your bank…"}</b>
+          <p class="pay-sub">${method === "payshap" ? "Live: they get a PayShap ping and approve it in FNB / Capitec / etc. Demo pretends they said yes." : "Demo only. No real money moves."}</p>
         </div>
       </div>`;
     return;
@@ -76,8 +82,18 @@ function render() {
              <button class="btn btn-pay" id="do-card">Pay ${zar(q.depositAmount)}</button>
            </div>`
         : method === "payshap"
-          ? `<p class="pay-sub">PayShap request to the client’s bank app. Instant, cheap. Demo just completes it.</p>
-             <button class="btn btn-pay" id="do-shap">Send PayShap request</button>`
+          ? `<div class="shap-hint">
+               <p class="shap-lead">No website. No card form. They pay in their <b>banking app</b>.</p>
+               <ol class="shap-steps">
+                 <li>We send a PayShap request to their number${q.clientName ? ` (${esc(prettyPhoneFromQuote(q))})` : ""} — that’s their ShapID.</li>
+                 <li>FNB / Capitec / Standard / Absa / Nedbank pings: <b>${esc(b.name)}</b> is requesting <b>${zar(q.depositAmount)}</b> for <b>${esc(q.number)}</b>.</li>
+                 <li>They open the bank app and tap pay or decline. They never leave that app.</li>
+                 <li>If they approve, the deposit lands in seconds (limit about R50k). We only mark the quote paid when the bank says so.</li>
+               </ol>
+               <p class="pay-sub">First time: they must have PayShap switched on in the bank app. If the number isn’t their ShapID, the request won’t land.</p>
+               <p class="pay-sub">This demo just pretends they approved. Live, this talks to Ozow / Stitch / the bank — no fake “paid”.</p>
+             </div>
+             <button class="btn btn-pay mt" id="do-shap">Send PayShap request</button>`
           : `<div class="bank">
                <div><span>Bank</span><b>${esc(b.bankName || "FNB")}</b></div>
                <div><span>Name</span><b>${esc(b.bankAccountName || b.name)}</b></div>
@@ -100,7 +116,7 @@ function render() {
       <div class="methods">
         ${methodBtn("eft", "Instant EFT  ·  Ozow / pay by bank", "Fastest for SA. ~1.5% · money in minutes", "Best for deposits")}
         ${methodBtn("card", "Card  ·  Yoco / Paystack", "Visa / Mastercard. ~2.9% · same day / T+1", "")}
-        ${methodBtn("payshap", "PayShap", "Instant to the business account. Low fee.", "")}
+        ${methodBtn("payshap", "PayShap Request", "They approve a ping in their banking app. No portal.", "")}
         ${methodBtn("bank", "Bank transfer", "Free. Client pays from their app. Slower.", "")}
       </div>
       <div class="pane">${pane}</div>
