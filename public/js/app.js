@@ -16,6 +16,11 @@ const state = {
   draft: emptyDraft(),
   listening: false,
   parseSource: "",
+  dumpImages: [],
+  warnings: [],
+  reviewOpen: false,
+  scanning: false,
+  transcribing: false,
 };
 
 const DEMO_VOICE =
@@ -354,6 +359,55 @@ function quoteRow(q) {
     </a>`;
 }
 
+function reviewOverlay() {
+  if (!state.reviewOpen) return "";
+  const d = state.draft;
+  const t = totals(d);
+  const warns = state.warnings || [];
+  const errors = warns.filter((w) => w.severity === "error");
+  return `
+    <div class="review-scrim" id="review-scrim">
+      <div class="review-sheet" role="dialog" aria-label="Check this quote">
+        <h2>Is this correct?</h2>
+        <p class="hint">Nothing is created yet. Fix anything that’s wrong, then confirm.</p>
+        ${
+          warns.length
+            ? `<div class="warn-list">${warns
+                .map(
+                  (w) =>
+                    `<div class="warn warn-${esc(w.severity)}">${esc(w.message)}</div>`
+                )
+                .join("")}</div>`
+            : `<div class="okmsg">Looked clean. Still read the lines.</div>`
+        }
+        <div class="review-sum">
+          <div><span>Client</span><b>${esc(d.clientName || "—")}</b></div>
+          <div><span>WhatsApp</span><b>${esc(d.clientPhone || "—")}</b></div>
+          <div><span>Site</span><b>${esc(d.site || "—")}</b></div>
+          <div><span>Lines</span><b>${d.items.filter((i) => i.description).length}</b></div>
+          <div><span>Total</span><b>${zar(t.total)}</b></div>
+          <div><span>Deposit</span><b>${zar(t.depositAmount)} (${d.depositPct}%)</b></div>
+        </div>
+        <ul class="review-items">
+          ${d.items
+            .filter((i) => i.description)
+            .map(
+              (i) =>
+                `<li>${esc(i.qty)} ${esc(i.unit)} · ${esc(i.description)} — ${zar(
+                  (Number(i.qty) || 0) * (Number(i.unitPrice) || 0)
+                )}${i.source === "guessed" ? " <em>guessed</em>" : ""}</li>`
+            )
+            .join("")}
+        </ul>
+        <div class="btn-row mt">
+          <button class="btn btn-ghost" id="review-edit" type="button">Edit first</button>
+          <button class="btn btn-amber" id="review-yes" type="button" ${errors.length ? "" : ""}>Yes, create quote</button>
+        </div>
+        ${errors.length ? `<p class="hint">Red items should be fixed, but you can still create a draft.</p>` : ""}
+      </div>
+    </div>`;
+}
+
 function newView() {
   const d = state.draft;
   const t = totals(d);
@@ -362,24 +416,42 @@ function newView() {
     <div class="top">
       <div class="brand"><div class="brand-mark"></div><div><h1>New quote</h1><p>${esc(state.me.trade)}</p></div></div>
     </div>
-    ${state.me?.demo ? `<div class="demo-banner"><b>Demo.</b> Voice note is already filled in. Tap <b>Turn into quote</b>.</div>` : ""}
+    ${state.me?.demo ? `<div class="demo-banner"><b>Demo.</b> Dump a voice note + site photos. Nothing is saved until you say it’s correct.</div>` : ""}
     ${state.error ? `<div class="err">${esc(state.error)}</div>` : ""}
     ${state.flash ? `<div class="okmsg">${esc(state.flash)}</div>` : ""}
-    <div class="card">
-      <h3>Speak the job</h3>
+    <div class="card dump" id="dump-card">
+      <h3>Dump the job</h3>
+      <p class="hint">Voice, photos, WhatsApp screenshots, nameplates — drop it all in here. I scan the lot, then you check it.</p>
       <div class="mic-box">
-        <button class="mic ${state.listening ? "on" : ""}" id="mic" type="button" aria-label="Hold to talk">●</button>
+        <button class="mic ${state.listening ? "on" : ""}" id="mic" type="button" aria-label="Record voice">${state.listening ? "■" : "●"}</button>
         <div>
-          <textarea id="voiceText" placeholder="Jake at 12 Marine Drive, 12kW heat pump supply and install 48k, trunking 2500, 50% deposit">${esc(d.voiceText)}</textarea>
+          <textarea id="voiceText" placeholder="Jake at 12 Marine Drive, 12kW heat pump supply and install 48k, trunking 2500, 50% deposit — or just talk and drop photos">${esc(d.voiceText)}</textarea>
           <p class="hint">${
             state.status?.ai
-              ? "AI will turn this into line items."
-              : "Works without AI — it grabs amounts. Add XAI_API_KEY to .env if you want it to think."
-          } ${state.parseSource ? `Last parse: ${esc(state.parseSource)}` : ""}</p>
-          <button class="btn btn-ghost mt" id="parse-btn" type="button">Turn into quote</button>
+              ? state.transcribing
+                ? "Hearing the recording…"
+                : "Voice is transcribed. Photos are read. You approve before anything is created."
+              : "Voice AI is off."
+          } ${state.parseSource ? `Last scan: ${esc(state.parseSource)}` : ""}</p>
         </div>
       </div>
+      <div class="thumbs" id="thumbs">
+        ${state.dumpImages
+          .map(
+            (im) =>
+              `<div class="thumb"><img src="${im.dataUrl}" alt=""><button type="button" data-rmimg="${esc(im.id)}" aria-label="Remove">×</button></div>`
+          )
+          .join("")}
+      </div>
+      <div class="btn-row mt">
+        <button class="btn btn-ghost" id="add-photos" type="button">Add photos</button>
+        <button class="btn btn-ghost" id="add-audio" type="button">Add audio file</button>
+      </div>
+      <input type="file" id="photo-file" accept="image/*" multiple hidden>
+      <input type="file" id="audio-file" accept="audio/*" hidden>
+      <button class="btn btn-amber mt" id="parse-btn" type="button" ${state.scanning ? "disabled" : ""}>${state.scanning ? "Scanning everything…" : "Scan & check"}</button>
     </div>
+    ${reviewOverlay()}
     <div class="card">
       <h3>Client</h3>
       <div class="field"><label>Name</label><input id="clientName" value="${esc(d.clientName)}" placeholder="Jake"></div>
@@ -421,6 +493,7 @@ function newView() {
       <button class="btn btn-ghost" id="save-draft" type="button">Save draft</button>
       <button class="btn btn-wa" id="save-send" type="button">Save & WhatsApp</button>
     </div>
+    <p class="hint">Save only after you’ve checked the lines. Scan first if you dumped voice or photos.</p>
     `,
     nav("new")
   );
@@ -650,7 +723,55 @@ function bind() {
   });
 
   $("#mic")?.addEventListener("click", toggleMic);
-  $("#parse-btn")?.addEventListener("click", parseVoice);
+  $("#parse-btn")?.addEventListener("click", parseDump);
+  $("#add-photos")?.addEventListener("click", () => $("#photo-file")?.click());
+  $("#add-audio")?.addEventListener("click", () => $("#audio-file")?.click());
+  $("#photo-file")?.addEventListener("change", async (e) => {
+    await addImageFiles(e.target.files);
+    e.target.value = "";
+  });
+  $("#audio-file")?.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) await transcribeFile(file);
+  });
+  document.querySelectorAll("[data-rmimg]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.dumpImages = state.dumpImages.filter((im) => im.id !== btn.dataset.rmimg);
+      if (state.view === "new") {
+        readDraftFromDom();
+        render(newView());
+      }
+    });
+  });
+  $("#dump-card")?.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    $("#dump-card").classList.add("over");
+  });
+  $("#dump-card")?.addEventListener("dragleave", () => $("#dump-card")?.classList.remove("over"));
+  $("#dump-card")?.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    $("#dump-card")?.classList.remove("over");
+    const files = [...(e.dataTransfer?.files || [])];
+    const imgs = files.filter((f) => f.type.startsWith("image/"));
+    const auds = files.filter((f) => f.type.startsWith("audio/"));
+    if (imgs.length) await addImageFiles(imgs);
+    if (auds[0]) await transcribeFile(auds[0]);
+  });
+  $("#review-edit")?.addEventListener("click", () => {
+    state.reviewOpen = false;
+    render(newView());
+  });
+  $("#review-yes")?.addEventListener("click", () => {
+    state.reviewOpen = false;
+    saveQuote(false);
+  });
+  $("#review-scrim")?.addEventListener("click", (e) => {
+    if (e.target.id === "review-scrim") {
+      state.reviewOpen = false;
+      render(newView());
+    }
+  });
   $("#add-item")?.addEventListener("click", () => {
     readDraftFromDom();
     state.draft.items.push({ id: uid(), description: "", qty: 1, unit: "each", unitPrice: "" });
@@ -788,56 +909,188 @@ function bind() {
 }
 
 let rec = null;
+let mediaRec = null;
+let audioChunks = [];
+
 function toggleMic() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    state.error = "This browser has no voice input. Type the job, or use Chrome / Edge.";
-    render(newView());
+  if (state.listening) {
+    stopMic();
     return;
   }
-  if (state.listening && rec) {
-    rec.stop();
-    return;
-  }
-  rec = new SR();
-  rec.lang = "en-ZA";
-  rec.interimResults = true;
-  rec.continuous = true;
-  rec.onresult = (e) => {
-    let text = "";
-    for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript + " ";
-    const box = $("#voiceText");
-    if (box) box.value = text.trim();
-    state.draft.voiceText = text.trim();
-  };
-  rec.onend = () => {
-    state.listening = false;
-    const btn = $("#mic");
-    if (btn) btn.classList.remove("on");
-  };
-  rec.onerror = () => {
-    state.listening = false;
-  };
-  rec.start();
-  state.listening = true;
-  $("#mic")?.classList.add("on");
+  startMic();
 }
 
-async function parseVoice() {
+async function startMic() {
+  state.error = "";
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SR) {
+    rec = new SR();
+    rec.lang = "en-ZA";
+    rec.interimResults = true;
+    rec.continuous = true;
+    rec.onresult = (e) => {
+      let text = "";
+      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript + " ";
+      const box = $("#voiceText");
+      if (box) {
+        const live = text.trim();
+        box.value = live;
+        state.draft.voiceText = live;
+      }
+    };
+    rec.onerror = () => {};
+    rec.onend = () => {};
+    try {
+      rec.start();
+    } catch {
+      /* already started */
+    }
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+    mediaRec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    mediaRec.ondataavailable = (e) => {
+      if (e.data.size) audioChunks.push(e.data);
+    };
+    mediaRec.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(audioChunks, { type: mediaRec.mimeType || "audio/webm" });
+      if (blob.size > 1000 && state.status?.ai) await transcribeBlob(blob);
+    };
+    mediaRec.start();
+  } catch {
+    if (!SR) {
+      state.error = "Mic blocked. Allow the mic, or type / drop an audio file.";
+      render(newView());
+      return;
+    }
+  }
+  state.listening = true;
+  $("#mic")?.classList.add("on");
+  const mic = $("#mic");
+  if (mic) mic.textContent = "■";
+}
+
+function stopMic() {
+  state.listening = false;
+  try {
+    rec?.stop();
+  } catch {
+    /* ignore */
+  }
+  rec = null;
+  if (mediaRec && mediaRec.state !== "inactive") mediaRec.stop();
+  mediaRec = null;
+  $("#mic")?.classList.remove("on");
+  const mic = $("#mic");
+  if (mic) mic.textContent = "●";
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function resizeImageFile(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = url;
+    });
+    const max = 1400;
+    let w = img.width;
+    let h = img.height;
+    if (w > max || h > max) {
+      const s = Math.min(max / w, max / h);
+      w = Math.round(w * s);
+      h = Math.round(h * s);
+    }
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    c.getContext("2d").drawImage(img, 0, 0, w, h);
+    return c.toDataURL("image/jpeg", 0.82);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function addImageFiles(fileList) {
+  readDraftFromDom();
+  const files = [...fileList].filter((f) => f.type.startsWith("image/"));
+  for (const file of files) {
+    if (state.dumpImages.length >= 8) break;
+    try {
+      const dataUrl = await resizeImageFile(file);
+      state.dumpImages.push({ id: uid(), dataUrl });
+    } catch {
+      state.error = "Could not read one of those photos.";
+    }
+  }
+  render(newView());
+}
+
+async function transcribeFile(file) {
+  const dataUrl = await fileToDataUrl(file);
+  await transcribeDataUrl(dataUrl);
+}
+
+async function transcribeBlob(blob) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+  await transcribeDataUrl(dataUrl);
+}
+
+async function transcribeDataUrl(dataUrl) {
+  if (!state.status?.ai) return;
+  readDraftFromDom();
+  state.transcribing = true;
+  render(newView());
+  try {
+    const data = await api("/api/transcribe", { method: "POST", body: { audio: dataUrl } });
+    const bit = String(data.text || "").trim();
+    if (bit) {
+      const cur = (state.draft.voiceText || "").trim();
+      state.draft.voiceText = cur && !cur.includes(bit) ? `${cur}\n${bit}` : bit || cur;
+    }
+    state.flash = "Voice written in. Add photos if you have them, then Scan & check.";
+    state.error = "";
+  } catch (e) {
+    if (!state.draft.voiceText) state.error = e.message;
+  }
+  state.transcribing = false;
+  render(newView());
+}
+
+async function parseDump() {
   readDraftFromDom();
   const text = state.draft.voiceText.trim();
-  if (!text) {
-    state.error = "Speak or type the job first.";
+  if (!text && !state.dumpImages.length) {
+    state.error = "Dump a voice note, text, or photos first.";
     render(newView());
     return;
   }
-  const btn = $("#parse-btn");
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "Reading it…";
-  }
+  state.scanning = true;
+  state.error = "";
+  render(newView());
   try {
-    const parsed = await api("/api/parse", { method: "POST", body: { text } });
+    const parsed = await api("/api/parse", {
+      method: "POST",
+      body: { text, images: state.dumpImages.map((i) => i.dataUrl) },
+    });
     state.parseSource = parsed.source + (parsed.error ? " (AI missed, used backup)" : "");
     if (parsed.clientName) state.draft.clientName = parsed.clientName;
     if (parsed.clientPhone) state.draft.clientPhone = parsed.clientPhone;
@@ -847,11 +1100,15 @@ async function parseVoice() {
     if (parsed.items?.length) {
       state.draft.items = parsed.items.map((i) => ({ id: uid(), ...i }));
     }
-    state.flash = "Check the lines, then send.";
-    state.error = "";
+    state.warnings = parsed.warnings || [];
+    state.reviewOpen = true;
+    state.flash = "";
+    state.error = parsed.error || "";
   } catch (e) {
     state.error = e.message;
+    state.reviewOpen = false;
   }
+  state.scanning = false;
   render(newView());
 }
 
@@ -885,6 +1142,9 @@ async function saveQuote(send) {
         vatMode: d.vatMode,
       },
     });
+    state.dumpImages = [];
+    state.warnings = [];
+    state.reviewOpen = false;
     if (send) {
       const sent = await api(`/api/quotes/${data.quote.id}/send`, { method: "POST" });
       state.draft = emptyDraft(state.me);

@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
 import { createStore } from "./lib/store.js";
-import { parseQuoteText } from "./lib/parse.js";
+import { parseQuoteInput, transcribeAudio, MAX_IMAGES } from "./lib/parse.js";
 import { ensureDemo } from "./lib/demo.js";
 import {
   nid,
@@ -177,7 +177,7 @@ function zar(n) {
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
-app.use(express.json({ limit: "3mb" }));
+app.use(express.json({ limit: "12mb" }));
 app.use(express.static(PUBLIC, { extensions: ["html"] }));
 
 app.get("/api/status", (req, res) => {
@@ -465,12 +465,37 @@ app.post("/api/quotes/:id/duplicate", auth, (req, res) => {
 
 app.post("/api/parse", auth, async (req, res) => {
   const text = String(req.body?.text || "").trim();
-  if (!text) return res.status(400).json({ error: "Nothing to parse." });
+  const images = Array.isArray(req.body?.images) ? req.body.images.slice(0, MAX_IMAGES) : [];
+  if (!text && !images.length) {
+    return res.status(400).json({ error: "Drop a voice note, text, or photos first." });
+  }
   try {
-    const parsed = await parseQuoteText(text);
+    const parsed = await parseQuoteInput({
+      text,
+      images,
+      trade: req.biz.trade,
+      defaultDeposit: req.biz.depositPct,
+    });
     res.json(parsed);
   } catch (e) {
     res.status(500).json({ error: e.message || "Parse failed." });
+  }
+});
+
+app.post("/api/transcribe", auth, async (req, res) => {
+  const key = process.env.XAI_API_KEY;
+  if (!key) return res.status(400).json({ error: "Voice AI is off." });
+  const dataUrl = String(req.body?.audio || "");
+  const m = dataUrl.match(/^data:(audio\/[a-z0-9.+-]+);base64,(.+)$/i);
+  if (!m) return res.status(400).json({ error: "That recording didn’t come through." });
+  try {
+    const buf = Buffer.from(m[2], "base64");
+    if (buf.length > 8_000_000) return res.status(400).json({ error: "Recording is too long." });
+    const ext = m[1].includes("mpeg") || m[1].includes("mp3") ? "mp3" : m[1].includes("wav") ? "wav" : "webm";
+    const text = await transcribeAudio(buf, { filename: `note.${ext}`, mime: m[1] }, key);
+    res.json({ text });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Could not hear that." });
   }
 });
 
