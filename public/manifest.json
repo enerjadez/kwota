@@ -1,0 +1,12 @@
+{
+  "name": "KWOTA",
+  "short_name": "KWOTA",
+  "description": "Voice it. Send it. Get the deposit.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e0d0b",
+  "theme_color": "#0e0d0b",
+  "icons": [
+    { "src": "/icon.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" }
+  ]
+}

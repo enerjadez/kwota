@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open KWOTA</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #0e0d0b; color: #f3ead8; font-family: system-ui, sans-serif; }
+    main { max-width: 440px; margin: 0 auto; padding: 48px 20px; }
+    h1 { font-size: 28px; letter-spacing: 0.12em; margin: 0 0 8px; }
+    p { color: #8d8678; line-height: 1.45; }
+    .ok, .wait { margin-top: 22px; padding: 16px; border-radius: 14px; background: #161410; border: 1px solid rgba(243,234,216,.12); }
+    a { color: #e8a317; }
+    code { color: #f3ead8; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>KWOTA</h1>
+    <p id="msg">Opening the app…</p>
+    <div class="wait" id="down" hidden>
+      <p>The app is HTML — this page. The <b>KWOTA</b> shortcut on your desktop is just the engine (a black window). Double-click that first, leave it open, then come back here.</p>
+      <p>Or open <a href="http://localhost:7744/?demo=1">http://localhost:7744/?demo=1</a> after it starts.</p>
+    </div>
+  </main>
+  <script>
+    const url = "http://localhost:7744/?demo=1";
+    fetch("http://localhost:7744/api/status")
+      .then((r) => { if (!r.ok) throw new Error("down"); location.replace(url); })
+      .catch(() => {
+        document.getElementById("msg").textContent = "Engine isn’t running yet.";
+        document.getElementById("down").hidden = false;
+      });
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "kwota",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WhatsApp quotes for trades. Voice it. Send it. Get the deposit.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
