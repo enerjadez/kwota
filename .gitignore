@@ -3,3 +3,7 @@ data/
 .env
 *.tmp
 .DS_Store
+.vercel
+
+
+.vercel

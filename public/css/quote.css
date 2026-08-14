@@ -112,8 +112,11 @@ td.qty { width: 70px; color: var(--soft); }
 .btn-wa { background: var(--wa); color: #fff; }
 input[type="text"] {
   width: 100%; padding: 12px 13px; border-radius: 12px;
-  border: 1px solid var(--line); background: #fff; font: inherit; font-size: 16px; margin-bottom: 8px;
+  border: 2px solid #b9ad93; background: #fff; color: #161410;
+  font: inherit; font-size: 16px; font-weight: 600; margin-bottom: 8px;
+  color-scheme: light;
 }
+input[type="text"]::placeholder { color: #6a6154; opacity: 1; }
 .err { color: var(--bad); font-size: 13px; margin: 0 0 8px; }
 .bank {
   background: #fff8ea;

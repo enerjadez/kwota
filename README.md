@@ -2,6 +2,10 @@
 
 WhatsApp quotes for trades. Voice it. Send it. Get the deposit.
 
+**Shared demo:** https://kwota-one.vercel.app
+
+Opens straight into a fake Ballito company. Four sample jobs. Send that link to a partner.
+
 ## Run
 
 Double-click `kwota.bat`, or:

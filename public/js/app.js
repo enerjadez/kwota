@@ -132,7 +132,7 @@ async function enterDemo() {
 async function boot() {
   try {
     state.status = await api("/api/status");
-    if (wantsDemo() && !state.status.signedIn) {
+    if ((wantsDemo() || state.status.demoOnly) && !state.status.signedIn) {
       await enterDemo();
       history.replaceState({}, "", "/#/");
     } else if (state.status.signedIn) {
@@ -155,7 +155,10 @@ async function onRoute() {
     render(welcomeView());
     return;
   }
-  if (r.name === "setup") return render(setupView());
+  if (r.name === "setup") {
+    if (state.status?.demoOnly) return render(welcomeView());
+    return render(setupView());
+  }
   if (r.name === "login") return render(loginView());
   if (r.name === "new") {
     if (!state.draft || state.view !== "new") state.draft = emptyDraft(state.me);
@@ -225,11 +228,15 @@ function welcomeView() {
       </div>
       ${state.error ? `<div class="err">${esc(state.error)}</div>` : ""}
       <button class="btn btn-amber" id="demo-btn" type="button">Open the demo</button>
-      <p class="tiny">The desktop KWOTA icon just starts this. The app is the page in your browser — same as Instagram isn’t the shortcut.</p>
-      <div class="btn-row mt">
+      <p class="tiny">${state.status?.demoOnly ? "Shared demo. The four sample jobs are ready — tap around." : "The desktop KWOTA icon just starts this. The app is the page in your browser."}</p>
+      ${
+        state.status?.demoOnly
+          ? ""
+          : `<div class="btn-row mt">
         <a class="btn btn-ghost" href="#/login">I have an account</a>
         <a class="btn btn-ghost" href="#/setup">Set up mine</a>
-      </div>
+      </div>`
+      }
     </div></div>`;
 }
 
@@ -239,7 +246,7 @@ function demoBanner() {
   const client = sent ? `/q/${sent.publicId}` : "/q/demo-priya";
   return `
     <div class="demo-banner">
-      <b>Demo company.</b> Fake jobs — you don’t need to type anything.
+      <b>Shared demo.</b> Fake Ballito jobs — click around. Nothing here is a real client.
       <div class="demo-links">
         <a href="${esc(client)}" target="_blank" rel="noopener">See what the client sees →</a>
         <a href="#/new">Make a quote from a ready-made voice note →</a>

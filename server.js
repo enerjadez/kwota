@@ -15,6 +15,9 @@ import {
   cookieHeader,
   parseCookies,
   publicBase,
+  signSession,
+  readSession,
+  isSecureReq,
   localIps,
   loadEnv,
   TRADES,
@@ -31,9 +34,22 @@ const PORT = Number(process.env.PORT) || 7744;
 
 loadEnv(path.join(ROOT, ".env"), fs);
 
+const DEMO_ONLY = Boolean(process.env.VERCEL) || process.env.KWOTA_DEMO_ONLY === "1";
 const store = createStore(path.join(ROOT, "data", "kwota.json"));
 ensureDemo(store);
 const loginHits = new Map();
+
+function setSession(req, res, businessId) {
+  res.setHeader(
+    "Set-Cookie",
+    cookieHeader("kwota", signSession(businessId), { secure: isSecureReq(req) })
+  );
+}
+
+function currentBiz(req) {
+  const bid = readSession(parseCookies(req).kwota);
+  return bid ? store.businessById(bid) : null;
+}
 
 function tooManyLogins(phone) {
   const now = Date.now();
@@ -56,11 +72,9 @@ function safeBiz(b) {
 }
 
 function auth(req, res, next) {
-  const token = parseCookies(req).kwota;
-  const biz = store.sessionBusiness(token);
+  const biz = currentBiz(req);
   if (!biz) return res.status(401).json({ error: "Sign in first." });
   req.biz = biz;
-  req.token = token;
   next();
 }
 
@@ -161,6 +175,7 @@ function zar(n) {
 
 const app = express();
 app.disable("x-powered-by");
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "3mb" }));
 app.use(express.static(PUBLIC, { extensions: ["html"] }));
 
@@ -174,19 +189,22 @@ app.get("/api/status", (req, res) => {
     trades: TRADES,
     templates: TRADE_TEMPLATES,
     units: UNITS,
-    signedIn: Boolean(store.sessionBusiness(parseCookies(req).kwota)),
+    signedIn: Boolean(currentBiz(req)),
     demo: true,
+    demoOnly: DEMO_ONLY,
   });
 });
 
 app.post("/api/demo", (req, res) => {
   const biz = ensureDemo(store);
-  const token = store.createSession(biz.id);
-  res.setHeader("Set-Cookie", cookieHeader("kwota", token));
+  setSession(req, res, biz.id);
   res.json({ ok: true, business: safeBiz(biz) });
 });
 
 app.post("/api/setup", (req, res) => {
+  if (DEMO_ONLY) {
+    return res.status(403).json({ error: "This hosted link is the shared demo. Open the demo — don’t create a live company here." });
+  }
   const body = req.body || {};
   const name = String(body.name || "").trim();
   const trade = TRADES.includes(body.trade) ? body.trade : "Other";
@@ -225,8 +243,7 @@ app.post("/api/setup", (req, res) => {
     createdAt: nowIso(),
   };
   store.data.businesses.push(biz);
-  const token = store.createSession(biz.id);
-  res.setHeader("Set-Cookie", cookieHeader("kwota", token));
+  setSession(req, res, biz.id);
   res.json({ ok: true, business: safeBiz(biz) });
 });
 
@@ -241,15 +258,12 @@ app.post("/api/login", (req, res) => {
   if (!biz || !checkPin(pin, biz.pinHash)) {
     return res.status(401).json({ error: "Wrong number or PIN." });
   }
-  const token = store.createSession(biz.id);
-  res.setHeader("Set-Cookie", cookieHeader("kwota", token));
+  setSession(req, res, biz.id);
   res.json({ ok: true, business: safeBiz(biz) });
 });
 
 app.post("/api/logout", (req, res) => {
-  const token = parseCookies(req).kwota;
-  if (token) store.dropSession(token);
-  res.setHeader("Set-Cookie", cookieHeader("kwota", "", { clear: true }));
+  res.setHeader("Set-Cookie", cookieHeader("kwota", "", { clear: true, secure: isSecureReq(req) }));
   res.json({ ok: true });
 });
 
@@ -547,25 +561,29 @@ function defaultTerms(trade) {
   );
 }
 
-const server = app.listen(PORT, "0.0.0.0", () => {
-  const ips = localIps();
-  console.log("");
-  console.log("  KWOTA  ·  quotes that get you the deposit");
-  console.log("  -----------------------------------------");
-  console.log(`  This PC     http://localhost:${PORT}`);
-  for (const ip of ips) console.log(`  Phone       http://${ip}:${PORT}`);
-  console.log("");
-  console.log("  Leave this window open. Close it to stop.");
-  if (process.env.XAI_API_KEY) console.log("  Voice AI    on");
-  else console.log("  Voice AI    off  (add XAI_API_KEY to .env to turn messy notes into line items)");
-  console.log("");
-});
+export default app;
 
-server.on("error", (err) => {
-  if (err.code === "EADDRINUSE") {
-    console.error(`Port ${PORT} is already in use. Close the other KWOTA window.`);
-  } else {
-    console.error(err);
-  }
-  process.exit(1);
-});
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, "0.0.0.0", () => {
+    const ips = localIps();
+    console.log("");
+    console.log("  KWOTA  ·  quotes that get you the deposit");
+    console.log("  -----------------------------------------");
+    console.log(`  This PC     http://localhost:${PORT}`);
+    for (const ip of ips) console.log(`  Phone       http://${ip}:${PORT}`);
+    console.log("");
+    console.log("  Leave this window open. Close it to stop.");
+    if (process.env.XAI_API_KEY) console.log("  Voice AI    on");
+    else console.log("  Voice AI    off  (add XAI_API_KEY to .env to turn messy notes into line items)");
+    console.log("");
+  });
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`Port ${PORT} is already in use. Close the other KWOTA window.`);
+    } else {
+      console.error(err);
+    }
+    process.exit(1);
+  });
+}
