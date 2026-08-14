@@ -467,13 +467,15 @@ app.post("/api/quotes/:id/duplicate", auth, (req, res) => {
 app.post("/api/parse", auth, async (req, res) => {
   const text = String(req.body?.text || "").trim();
   const images = Array.isArray(req.body?.images) ? req.body.images.slice(0, MAX_IMAGES) : [];
-  if (!text && !images.length) {
-    return res.status(400).json({ error: "Drop a voice note, text, or photos first." });
+  const sheets = Array.isArray(req.body?.sheets) ? req.body.sheets.slice(0, 3) : [];
+  if (!text && !images.length && !sheets.length) {
+    return res.status(400).json({ error: "Drop a voice note, text, photos, or an Excel file first." });
   }
   try {
     const parsed = await parseQuoteInput({
       text,
       images,
+      sheets,
       trade: req.biz.trade,
       defaultDeposit: req.biz.depositPct,
     });

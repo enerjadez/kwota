@@ -19,6 +19,7 @@ const state = {
   listening: false,
   parseSource: "",
   dumpImages: [],
+  dumpSheets: [],
   warnings: [],
   reviewOpen: false,
   scanning: false,
@@ -426,7 +427,7 @@ function newView() {
     ${state.flash ? `<div class="okmsg">${esc(state.flash)}</div>` : ""}
     <div class="card dump" id="dump-card">
       <h3>Dump the job</h3>
-      <p class="hint">Voice, photos, WhatsApp screenshots, nameplates — drop it all in here. I scan the lot, then you check it.</p>
+      <p class="hint">Voice, photos, Excel/CSV, WhatsApp screenshots — drop it all in here. I scan the lot, then you check it.</p>
       <div class="mic-box">
         <button class="mic ${state.listening ? "on" : ""}" id="mic" type="button" aria-label="Record voice">${state.listening ? "■" : "●"}</button>
         <div>
@@ -435,7 +436,7 @@ function newView() {
             state.status?.ai
               ? state.transcribing
                 ? "Hearing the recording…"
-                : "Voice is transcribed. Photos are read. You approve before anything is created."
+                : "Voice, photos and spreadsheets are read. You approve before anything is created."
               : "Voice AI is off."
           } ${state.parseSource ? `Last scan: ${esc(state.parseSource)}` : ""}</p>
         </div>
@@ -447,12 +448,20 @@ function newView() {
               `<div class="thumb"><img src="${im.dataUrl}" alt=""><button type="button" data-rmimg="${esc(im.id)}" aria-label="Remove">×</button></div>`
           )
           .join("")}
+        ${(state.dumpSheets || [])
+          .map(
+            (sh) =>
+              `<div class="sheet-chip"><span>xlsx</span><b>${esc(sh.name)}</b><button type="button" data-rmsheet="${esc(sh.id)}" aria-label="Remove">×</button></div>`
+          )
+          .join("")}
       </div>
-      <div class="btn-row mt">
-        <button class="btn btn-ghost" id="add-photos" type="button">Add photos</button>
-        <button class="btn btn-ghost" id="add-audio" type="button">Add audio file</button>
+      <div class="btn-row-3 mt">
+        <button class="btn btn-ghost" id="add-photos" type="button">Photos</button>
+        <button class="btn btn-ghost" id="add-sheet" type="button">Excel</button>
+        <button class="btn btn-ghost" id="add-audio" type="button">Audio</button>
       </div>
       <input type="file" id="photo-file" accept="image/*" multiple hidden>
+      <input type="file" id="sheet-file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden>
       <input type="file" id="audio-file" accept="audio/*" hidden>
       <button class="btn btn-amber mt" id="parse-btn" type="button" ${state.scanning ? "disabled" : ""}>${state.scanning ? "Scanning everything…" : "Scan & check"}</button>
     </div>
@@ -735,9 +744,14 @@ function bind() {
   $("#mic")?.addEventListener("click", toggleMic);
   $("#parse-btn")?.addEventListener("click", parseDump);
   $("#add-photos")?.addEventListener("click", () => $("#photo-file")?.click());
+  $("#add-sheet")?.addEventListener("click", () => $("#sheet-file")?.click());
   $("#add-audio")?.addEventListener("click", () => $("#audio-file")?.click());
   $("#photo-file")?.addEventListener("change", async (e) => {
     await addImageFiles(e.target.files);
+    e.target.value = "";
+  });
+  $("#sheet-file")?.addEventListener("change", async (e) => {
+    await addSheetFiles(e.target.files);
     e.target.value = "";
   });
   $("#audio-file")?.addEventListener("change", async (e) => {
@@ -748,6 +762,15 @@ function bind() {
   document.querySelectorAll("[data-rmimg]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.dumpImages = state.dumpImages.filter((im) => im.id !== btn.dataset.rmimg);
+      if (state.view === "new") {
+        readDraftFromDom();
+        render(newView());
+      }
+    });
+  });
+  document.querySelectorAll("[data-rmsheet]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.dumpSheets = (state.dumpSheets || []).filter((s) => s.id !== btn.dataset.rmsheet);
       if (state.view === "new") {
         readDraftFromDom();
         render(newView());
@@ -765,7 +788,9 @@ function bind() {
     const files = [...(e.dataTransfer?.files || [])];
     const imgs = files.filter((f) => f.type.startsWith("image/"));
     const auds = files.filter((f) => f.type.startsWith("audio/"));
+    const sheets = files.filter((f) => /\.(xlsx|xls|csv)$/i.test(f.name));
     if (imgs.length) await addImageFiles(imgs);
+    if (sheets.length) await addSheetFiles(sheets);
     if (auds[0]) await transcribeFile(auds[0]);
   });
   $("#review-edit")?.addEventListener("click", () => {
@@ -1034,6 +1059,28 @@ async function resizeImageFile(file) {
   }
 }
 
+async function addSheetFiles(fileList) {
+  readDraftFromDom();
+  state.dumpSheets = state.dumpSheets || [];
+  for (const file of [...fileList]) {
+    if (state.dumpSheets.length >= 3) break;
+    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) continue;
+    if (file.size > 2_400_000) {
+      state.error = `${file.name} is too big (keep under 2.4MB).`;
+      continue;
+    }
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      state.dumpSheets.push({ id: uid(), name: file.name, dataUrl });
+      state.flash = `${file.name} added. Scan & check when you’re ready.`;
+      state.error = "";
+    } catch {
+      state.error = `Could not read ${file.name}.`;
+    }
+  }
+  render(newView());
+}
+
 async function addImageFiles(fileList) {
   readDraftFromDom();
   const files = [...fileList].filter((f) => f.type.startsWith("image/"));
@@ -1088,8 +1135,8 @@ async function transcribeDataUrl(dataUrl) {
 async function parseDump() {
   readDraftFromDom();
   const text = state.draft.voiceText.trim();
-  if (!text && !state.dumpImages.length) {
-    state.error = "Dump a voice note, text, or photos first.";
+  if (!text && !state.dumpImages.length && !(state.dumpSheets || []).length) {
+    state.error = "Dump a voice note, text, photos, or an Excel file first.";
     render(newView());
     return;
   }
@@ -1099,7 +1146,11 @@ async function parseDump() {
   try {
     const parsed = await api("/api/parse", {
       method: "POST",
-      body: { text, images: state.dumpImages.map((i) => i.dataUrl) },
+      body: {
+        text,
+        images: state.dumpImages.map((i) => i.dataUrl),
+        sheets: (state.dumpSheets || []).map((s) => ({ name: s.name, dataUrl: s.dataUrl })),
+      },
     });
     state.parseSource = parsed.source + (parsed.error ? " (AI missed, used backup)" : "");
     if (parsed.clientName) state.draft.clientName = parsed.clientName;
@@ -1153,6 +1204,7 @@ async function saveQuote(send) {
       },
     });
     state.dumpImages = [];
+    state.dumpSheets = [];
     state.warnings = [];
     state.reviewOpen = false;
     if (send) {
